@@ -58,6 +58,7 @@ public class profile extends modifyArff{
     private Profile totalPosProfile;
     private Profile totalNegProfile;
     private Profile totalProfile;
+    private List<ProductAdder> productAdders;
 
     private static Logger LOG = Logger.getLogger(profile.class);
 
@@ -68,7 +69,6 @@ public class profile extends modifyArff{
     }
     public  void readProfile() throws IOException{
         task= conf.get("rec.profile.task");
-        System.out.println(task);
         //docPath = conf.get("rec.profile.docPath");
         Context context = Context.getContext(task);
         productFile = context.getString("profile.product", (String)null);
@@ -93,6 +93,7 @@ public class profile extends modifyArff{
         features = lexicon.getFeatureSet();
         sortedFeatures = Utility.sortByStringLength(features);
         products = new ArrayList();
+        productAdders = new ArrayList();
         posProfiles = new ArrayList();
         negProfiles = new ArrayList();
         indicators = new ArrayList();
@@ -102,6 +103,10 @@ public class profile extends modifyArff{
         //QuickFileReader reader = QuickFileReader.create(productFile, charsetProduct);
         //String line = null;
         int productCount = 0;
+        /**
+         * add ProductAdder
+         */
+        productAdders = new ArrayList<>();
 
         /**
          * read DOC dataset
@@ -118,16 +123,19 @@ public class profile extends modifyArff{
             String[] sentences = data[reviewCol].split("[，,。．.？?！!；;、：:　]+");
             Profile posProfile = new Profile();
             Profile negProfile = new Profile();
-            Product product = new Product(productName, userId);
+            ProductAdder productAdder = new ProductAdder(productName, "no", attributes);
+            System.out.println(productAdder.getName());
+            productAdder.setData(data);
 
             for(int var1 = 0; var1 < sentences.length; var1++) {
                 String sentence = sentences[var1];
                 FSM.fsm(sentence, sortedFeatures, lexicon, posProfile, negProfile, totalPosProfile, totalNegProfile, totalProfile);
             }
 
-            product.addPosReviewsNum(posProfile.getReviewsNum());
-            product.addNegReviewsNum(negProfile.getReviewsNum());
-            products.add(product);
+            productAdder.addPosReviewsNum(posProfile.getReviewsNum());
+            productAdder.addNegReviewsNum(negProfile.getReviewsNum());
+            productAdders.add(productAdder);
+            System.out.println("size"+productAdders.size());
             posProfiles.add(posProfile);
             negProfiles.add(negProfile);
         }
@@ -142,17 +150,19 @@ public class profile extends modifyArff{
         String outPath = conf.get("rec.modiArr.outpath");
         File file = new File(outPath);
         PrintWriter pw  = new PrintWriter(new BufferedWriter(new FileWriter(file)));
+        System.out.println("size2"+productAdders.size());
 
-        for(int var0 = 0; var0 < products.size(); var0++) {
+        for(int var0 = 0; var0 < productAdders.size(); var0++) {
             Profile negProfile;
-            Product product = (Product)products.get(var0);
+            ProductAdder productAdder = (ProductAdder)productAdders.get(var0);
             negProfile = (Profile)posProfiles.get(var0);
-            negProfile.summarizeScore(lexicon, product);
+            negProfile.summarizeScore(lexicon, productAdder);
+            //negProfile.summarizeScore(lexicon, product);
             negProfile = (Profile)negProfiles.get(var0);
-            negProfile.summarizeScore(lexicon, product);
+            negProfile.summarizeScore(lexicon, productAdder);
         }
 
-        for(int var0 = 0; var0 < products.size(); var0++) {
+        for(int var0 = 0; var0 < productAdders.size(); var0++) {
             Profile negProfile;
             Profile posProfile = (Profile)posProfiles.get(var0);
             negProfile = (Profile)negProfiles.get(var0);
@@ -161,14 +171,14 @@ public class profile extends modifyArff{
         }
 
         int index = 0;
-        for(int var0 = 0; var0 < products.size(); var0++) {
+        for(int var0 = 0; var0 < productAdders.size(); var0++) {
             index++;
-            Product product = (Product)products.get(var0);
+            ProductAdder productAdder = (ProductAdder) productAdders.get(var0);
             Profile posProfile = (Profile)posProfiles.get(var0);
             Profile negProfile = (Profile)negProfiles.get(var0);
             Indicator indicator = (Indicator)indicators.get(var0);
-            String productName = StringManager.toDBC(product.getName());
-            String userId = StringManager.toDBC(product.getURL());
+            String productName = StringManager.toDBC(productAdder.getName());
+            String userId = StringManager.toDBC(productAdder.getData(userCol));
             String feature;
             double score;
 
